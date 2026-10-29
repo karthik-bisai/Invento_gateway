@@ -20,17 +20,26 @@ describe('sign in with a code', () => {
     expect(codeFrom(h, SIGN_IN)).toMatch(/^\d{6}$/)
 
     const unknown = await post(h, '/auth/login-code/request', { email: 'ghost@acme.com' })
-    expect(bodyOf(unknown)).toEqual(bodyOf(known)) // nothing reveals which addresses are registered
+    expect(unknown.statusCode).toBe(404)
+    expect(bodyOf(unknown).code).toBe('no_account')
+    expect(bodyOf(unknown).detail).toContain('Unable to sign in. No eligible account was found')
     expect(h.sent).toHaveLength(1)
   })
 
-  it('never emails accounts that are not allowed in yet', async () => {
+  it('rejects accounts that are not allowed in yet with clear status errors', async () => {
     const h = await start()
     h.users.set('44444444-4444-4444-8444-444444444444', { id: '44444444-4444-4444-8444-444444444444', email: 'pending@acme.com', full_name: null, password: 'PendingPass1', verified: true, active: false, role: 'WAREHOUSE_STAFF', avatar_url: null })
     h.users.set('55555555-5555-4555-8555-555555555555', { id: '55555555-5555-4555-8555-555555555555', email: 'fresh@acme.com', full_name: null, password: 'FreshPass12', verified: false, active: false, role: 'WAREHOUSE_STAFF', avatar_url: null })
-    for (const email of ['pending@acme.com', 'fresh@acme.com']) {
-      expect((await post(h, '/auth/login-code/request', { email })).statusCode).toBe(200)
-    }
+    
+    const pendingRes = await post(h, '/auth/login-code/request', { email: 'pending@acme.com' })
+    expect(pendingRes.statusCode).toBe(403)
+    expect(bodyOf(pendingRes).code).toBe('pending_approval')
+    expect(bodyOf(pendingRes).detail).toContain('awaiting administrator approval')
+
+    const freshRes = await post(h, '/auth/login-code/request', { email: 'fresh@acme.com' })
+    expect(freshRes.statusCode).toBe(403)
+    expect(bodyOf(freshRes).code).toBe('email_unverified')
+
     await new Promise((r) => setTimeout(r, 30))
     expect(h.sent).toHaveLength(0)
   })

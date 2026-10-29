@@ -33,49 +33,74 @@ const codeBox = (code: string) =>
 
 export function otpEmail(code: string, ttlMinutes: number): Email {
   return {
-    subject: `${code} is your ${BRAND} verification code`,
-    text: `Your verification code is ${code}.\n\nIt expires in ${ttlMinutes} minutes. If you didn't create an account, you can ignore this email.`,
+    subject: `Verify Your Email Address – verification code – ${BRAND}`,
+    text: `Hi,\n\nThank you for registering with ${BRAND}. Please use the verification code below to confirm your email address and activate your account.\n\nVerification Code: ${code}\n\nThis code expires in ${ttlMinutes} minutes. For security, do not share this code with anyone.\n\nIf you did not register for an account, please ignore this email.\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: `Your code is ${code}`,
-      title: 'Confirm your email',
-      paragraphs: ['Enter this code to finish creating your account:', codeBox(code), `It expires in ${ttlMinutes} minutes. If you didn't create an account, you can ignore this email.`],
+      preheader: 'Your verification code is ready.',
+      title: 'Verify Your Email Address',
+      paragraphs: [
+        'Hi,',
+        `Thank you for registering with ${BRAND}. Please enter the verification code below to verify your email address:`,
+        codeBox(code),
+        `This code will expire in ${ttlMinutes} minutes. For your security, do not share this code with anyone.`,
+        'If you did not create an account, you can safely ignore this email.',
+      ],
+      footer: `— The ${BRAND} Team`,
     }),
   }
 }
 
 export function loginCodeEmail(code: string, ttlMinutes: number, name: string | null): Email {
   return {
-    subject: `${code} is your ${BRAND} sign-in code`,
-    text: `${name ? `Hi ${name},\n\n` : ''}Your sign-in code is ${code}.\n\nIt expires in ${ttlMinutes} minutes and works once. If you didn't ask to sign in, ignore this email: nobody can sign in without the code.`,
+    subject: `Sign-In Code – ${BRAND}`,
+    text: `${name ? `Hi ${name},\n\n` : 'Hi,\n\n'}We received a request to sign in to your ${BRAND} account using a one-time code.\n\nYour sign-in code: ${code}\n\nThis code expires in ${ttlMinutes} minutes and works once. If you did not ask to sign in, ignore this email: nobody can sign in without this code.\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: `Your sign-in code is ${code}`,
-      title: 'Your sign-in code',
-      paragraphs: [greeting(name), 'Enter this code to sign in:', codeBox(code), `It expires in ${ttlMinutes} minutes and works once. If you didn’t ask to sign in, ignore this email: nobody can sign in without the code.`],
+      preheader: 'Your one-time sign-in code.',
+      title: 'Sign In to Your Account',
+      paragraphs: [
+        greeting(name),
+        `We received a request to sign in to your ${BRAND} account using a one-time code:`,
+        codeBox(code),
+        `This code expires in ${ttlMinutes} minutes and can only be used once.`,
+        'If you didn’t request to sign in, ignore this email: nobody can sign in without the code.',
+      ],
+      footer: `— The ${BRAND} Team`,
     }),
   }
 }
 
 export function resetCodeEmail(code: string, ttlMinutes: number, name: string | null): Email {
   return {
-    subject: `${code} is your ${BRAND} password reset code`,
-    text: `${name ? `Hi ${name},\n\n` : ''}Your password reset code is ${code}.\n\nIt expires in ${ttlMinutes} minutes. If you didn't ask to reset your password, ignore this email and your password stays as it is.`,
+    subject: `Password Reset Code – ${BRAND}`,
+    text: `${name ? `Hi ${name},\n\n` : 'Hi,\n\n'}A password reset was requested for your ${BRAND} account.\n\nYour reset code: ${code}\n\nThis code expires in ${ttlMinutes} minutes. If you did not ask to reset your password, you can safely ignore this email and your password will stay unchanged.\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: `Your reset code is ${code}`,
-      title: 'Reset your password',
-      paragraphs: [greeting(name), 'Enter this code to choose a new password:', codeBox(code), `It expires in ${ttlMinutes} minutes. If you didn’t ask to reset your password, ignore this email and your password stays as it is.`],
+      preheader: 'Your password reset code.',
+      title: 'Reset Your Password',
+      paragraphs: [
+        greeting(name),
+        `A password reset was requested for your ${BRAND} account. Enter this code to set a new password:`,
+        codeBox(code),
+        `This code will expire in ${ttlMinutes} minutes.`,
+        'If you didn’t ask to reset your password, you can safely ignore this email and your password remains secure.',
+      ],
+      footer: `— The ${BRAND} Team`,
     }),
   }
 }
 
 export function requestReceivedEmail(name: string | null, appUrl: string): Email {
   return {
-    subject: 'We received your access request',
-    text: `${name ? `Hi ${name},\n\n` : ''}Your email is confirmed and your request is with an administrator. We'll email you as soon as they decide.\n\n${appUrl}/signup/pending`,
+    subject: `Registration Request Submitted – ${BRAND}`,
+    text: `${name ? `Hi ${name},\n\n` : 'Hi,\n\n'}Your registration request has been submitted successfully. Access to the application will be granted once an administrator approves your request. You will be notified when your request is reviewed.\n\nCheck request status: ${appUrl}/signup/pending\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: 'An administrator will review it shortly.',
-      title: 'Your request is in',
-      paragraphs: [greeting(name), 'Your email is confirmed and your access request is with an administrator. We’ll email you as soon as they decide.'],
+      preheader: 'Your registration request is under review.',
+      title: 'Registration Request Submitted',
+      paragraphs: [
+        greeting(name),
+        `Your registration request has been submitted successfully. Access to the application will be granted once an administrator approves your request. You will be notified when your request is reviewed.`,
+      ],
       action: { label: 'Check request status', url: `${appUrl}/signup/pending` },
+      footer: `— The ${BRAND} Team`,
     }),
   }
 }
@@ -83,56 +108,69 @@ export function requestReceivedEmail(name: string | null, appUrl: string): Email
 export function accessRequestedEmail(adminName: string | null, applicant: { email: string; name: string | null }, appUrl: string): Email {
   const who = applicant.name ? `${applicant.name} (${applicant.email})` : applicant.email
   return {
-    subject: `Access request from ${applicant.name ?? applicant.email}`,
-    text: `${adminName ? `Hi ${adminName},\n\n` : ''}${who} confirmed their email and is asking for access.\n\nReview it: ${appUrl}/users?tab=requests`,
+    subject: `Access Request from ${applicant.name ?? applicant.email} – ${BRAND}`,
+    text: `${adminName ? `Hi ${adminName},\n\n` : 'Hi,\n\n'}${who} has confirmed their email and requested access to your organization.\n\nReview request: ${appUrl}/users?tab=requests\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: `${who} is asking for access`,
-      title: 'New access request',
-      paragraphs: [greeting(adminName), `<strong>${escapeHtml(who)}</strong> confirmed their email and is asking for access.`],
+      preheader: `${who} is requesting access to your organization`,
+      title: 'New Access Request',
+      paragraphs: [
+        greeting(adminName),
+        `<strong>${escapeHtml(who)}</strong> has confirmed their email address and requested access to your organization.`,
+      ],
       action: { label: 'Review request', url: `${appUrl}/users?tab=requests` },
-      footer: 'You get this because you’re an administrator. You can turn these emails off under Settings → Notifications.',
+      footer: 'You received this notification because you are an administrator.',
     }),
   }
 }
 
 export function accessApprovedEmail(name: string | null, appUrl: string): Email {
   return {
-    subject: `Your ${BRAND} access is approved`,
-    text: `${name ? `Hi ${name},\n\n` : ''}An administrator approved your request. You can sign in now:\n\n${appUrl}/login`,
+    subject: `Your Access Request Has Been Approved – ${BRAND}`,
+    text: `${name ? `Hi ${name},\n\n` : ''}An administrator approved your request. You can now sign in to your workspace:\n\n${appUrl}/login\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: 'You can sign in now.',
-      title: 'You’re in',
-      paragraphs: [greeting(name), 'An administrator approved your request. You can sign in with the email and password you chose.'],
-      action: { label: 'Sign in', url: `${appUrl}/login` },
+      preheader: 'You can now sign in to your workspace.',
+      title: 'Access Request Approved',
+      paragraphs: [
+        greeting(name),
+        `An administrator has approved your access request. You can now sign in to ${BRAND} using your email and password.`,
+      ],
+      action: { label: 'Sign in now', url: `${appUrl}/login` },
+      footer: `— The ${BRAND} Team`,
     }),
   }
 }
 
 export function accessRejectedEmail(name: string | null, note: string | null): Email {
   return {
-    subject: `Your ${BRAND} access request was declined`,
-    text: `${name ? `Hi ${name},\n\n` : ''}An administrator declined your access request.${note ? `\n\nReason: ${note}` : ''}\n\nIf you think this is a mistake, contact your administrator.`,
+    subject: `Access Request Declined – ${BRAND}`,
+    text: `${name ? `Hi ${name},\n\n` : ''}An administrator declined your access request.${note ? `\n\nReason: ${note}` : ''}\n\nIf you think this is a mistake, please contact your organization administrator.\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: 'Your access request was declined.',
-      title: 'Request declined',
+      preheader: 'An update regarding your access request.',
+      title: 'Access Request Update',
       paragraphs: [
         greeting(name),
-        'An administrator declined your access request.',
+        'An administrator reviewed your access request and was unable to approve it at this time.',
         ...(note ? [`<em style="color:#565d58">“${escapeHtml(note)}”</em>`] : []),
-        'If you think this is a mistake, contact your administrator.',
+        'If you believe this decision was made in error, please contact your organization administrator.',
       ],
+      footer: `— The ${BRAND} Team`,
     }),
   }
 }
 
 export function passwordChangedEmail(name: string | null, appUrl: string): Email {
   return {
-    subject: `Your ${BRAND} password was changed`,
-    text: `${name ? `Hi ${name},\n\n` : ''}Your password was just changed and every other device was signed out. If this wasn't you, contact an administrator right away.\n\n${appUrl}/login`,
+    subject: `Your Password Was Changed – ${BRAND}`,
+    text: `${name ? `Hi ${name},\n\n` : 'Hi,\n\n'}Your password was just changed and all other active sessions were signed out. If you did not make this change, please contact an administrator immediately.\n\n${appUrl}/login\n\n— The ${BRAND} Team`,
     html: layout({
-      preheader: 'Every other device was signed out.',
-      title: 'Password changed',
-      paragraphs: [greeting(name), 'Your password was just changed and every other device was signed out.', 'If this wasn’t you, contact an administrator right away.'],
+      preheader: 'Your account security notification.',
+      title: 'Password Changed',
+      paragraphs: [
+        greeting(name),
+        'Your password was recently changed and all other sessions were signed out for security.',
+        'If you did not perform this change, please contact an administrator immediately.',
+      ],
+      footer: `— The ${BRAND} Team`,
     }),
   }
 }

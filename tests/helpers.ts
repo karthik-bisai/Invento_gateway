@@ -91,6 +91,22 @@ export function makeHarness(env: Record<string, string> = {}, opts: { rateLimits
       users.set(NEW_ID, { id: NEW_ID, email: body.email, full_name: body.full_name ?? null, password: body.password, verified: false, active: false, role: 'WAREHOUSE_STAFF', avatar_url: null })
       return json(201, publicUser(users.get(NEW_ID) as FakeUser))
     }
+    if (key === 'POST /auth/register/admin') {
+      if (byEmail(body.email)) return json(409, { detail: 'Email already registered' })
+      users.set(NEW_ID, { id: NEW_ID, email: body.email, full_name: body.full_name, password: body.password, verified: false, active: true, role: 'ADMIN', avatar_url: null })
+      return json(201, { ...publicUser(users.get(NEW_ID) as FakeUser), org_code: 'ORG-ACME1234', organization_name: body.organization_name })
+    }
+    if (key === 'POST /auth/register/employee') {
+      if (byEmail(body.email)) return json(409, { detail: 'Email already registered' })
+      if (body.org_code !== 'ORG-ACME1234') return json(404, { detail: 'Invalid Organization ID. Please check the ID provided by your administrator.' })
+      users.set(NEW_ID, { id: NEW_ID, email: body.email, full_name: body.full_name, password: body.password, verified: false, active: false, role: 'WAREHOUSE_STAFF', avatar_url: null })
+      return json(201, { ...publicUser(users.get(NEW_ID) as FakeUser), org_code: body.org_code })
+    }
+    if (method === 'GET' && p.startsWith('/organizations/lookup/')) {
+      const code = p.split('/')[3]
+      if (code === 'ORG-ACME1234') return json(200, { id: 'org-1', org_code: 'ORG-ACME1234', name: 'Acme Corp', location: 'New York' })
+      return json(404, { detail: 'Organization not found' })
+    }
     if (method === 'POST' && /^\/internal\/users\/[^/]+\/token$/.test(p)) {
       state.tokenCalls++
       const u = users.get(p.split('/')[3] as string)
@@ -242,7 +258,7 @@ export const codeFrom = (h: Harness, kind: RegExp): string => {
 }
 
 export const otpFrom = (h: Harness): string => {
-  const m = [...h.sent].reverse().find((e) => /verification code/i.test(e.subject))
+  const m = [...h.sent].reverse().find((e) => /verify|verification/i.test(e.subject))
   const code = /\b(\d{6})\b/.exec(m?.text ?? '')?.[1]
   if (!code) throw new Error('no OTP email was sent')
   return code

@@ -10,6 +10,19 @@ const signupBody = z.object({
   password: passwordSchema,
   full_name: z.string().trim().max(120).optional(),
 })
+const signupAdminBody = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  full_name: z.string().trim().min(1, 'Enter your full name.').max(120),
+  organization_name: z.string().trim().min(1, 'Enter your organization name.').max(120),
+  organization_location: z.string().trim().max(120).optional(),
+})
+const signupEmployeeBody = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  full_name: z.string().trim().min(1, 'Enter your full name.').max(120),
+  organization_code: z.string().trim().min(1, 'Enter the Organization ID.'),
+})
 const verifyBody = z.object({ email: emailSchema, code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code.') })
 const resendBody = z.object({ email: emailSchema })
 
@@ -81,6 +94,80 @@ export async function authRoutes(app: FastifyInstance, ctx: Ctx) {
     const code = await otp.issue(body.email)
     const emailSent = await notifier.sendOtp(body.email, code)
     return reply.code(201).send({ status: 'verify_email', email: body.email, email_sent: emailSent, resend_in: config.otp.resendSeconds })
+  })
+
+  app.post('/auth/signup/admin', async (req, reply) => {
+    const body = parse(signupAdminBody, req.body)
+    await limiter.check('signup', req.ip, 10, 3600, 'sign-up attempts')
+    const res = await upstream.call({
+      method: 'POST',
+      path: '/auth/register/admin',
+      body: {
+        email: body.email,
+        password: body.password,
+        full_name: body.full_name,
+        organization_name: body.organization_name,
+        organization_location: body.organization_location || undefined,
+      },
+      clientIp: req.ip,
+    })
+    if (res.status === 409) throw new HttpError(409, 'An account with this email already exists. Try signing in instead.', 'email_taken')
+    if (res.status === 429) throw new HttpError(429, detailOf(res, 'Too many attempts. Try again later.'), 'rate_limited', { 'Retry-After': res.headers.get('retry-after') ?? '60' })
+    if (res.status === 422) throw new HttpError(422, detailOf(res, 'Check your details and try again.'), 'validation')
+    if (res.status !== 201) throw new HttpError(502, 'The service is temporarily unavailable. Please try again.', 'upstream_unavailable')
+
+    const created = res.json<{ id: string; email: string; org_code?: string; organization_name?: string }>()
+    await otp.reserveSend(body.email)
+    const code = await otp.issue(body.email)
+    const emailSent = await notifier.sendOtp(body.email, code)
+    return reply.code(201).send({
+      status: 'verify_email',
+      email: body.email,
+      email_sent: emailSent,
+      resend_in: config.otp.resendSeconds,
+      org_code: created?.org_code,
+    })
+  })
+
+  app.post('/auth/signup/employee', async (req, reply) => {
+    const body = parse(signupEmployeeBody, req.body)
+    await limiter.check('signup', req.ip, 10, 3600, 'sign-up attempts')
+    const res = await upstream.call({
+      method: 'POST',
+      path: '/auth/register/employee',
+      body: {
+        email: body.email,
+        password: body.password,
+        full_name: body.full_name,
+        org_code: body.organization_code,
+      },
+      clientIp: req.ip,
+    })
+    if (res.status === 404) throw new HttpError(404, detailOf(res, 'Invalid Organization ID. Please check the ID provided by your administrator.'), 'org_not_found')
+    if (res.status === 409) throw new HttpError(409, 'An account with this email already exists. Try signing in instead.', 'email_taken')
+    if (res.status === 429) throw new HttpError(429, detailOf(res, 'Too many attempts. Try again later.'), 'rate_limited', { 'Retry-After': res.headers.get('retry-after') ?? '60' })
+    if (res.status === 422) throw new HttpError(422, detailOf(res, 'Check your details and try again.'), 'validation')
+    if (res.status !== 201) throw new HttpError(502, 'The service is temporarily unavailable. Please try again.', 'upstream_unavailable')
+
+    // Send acknowledgment email when supported by the existing email service
+    void notifier.accessRequested({ email: body.email, full_name: body.full_name }, [])
+    return reply.code(201).send({
+      status: 'pending_approval',
+      email: body.email,
+      message: 'Your registration request has been submitted successfully. Access to the application will be granted once an administrator approves your request.',
+    })
+  })
+
+  app.get('/auth/org-lookup/:code', async (req) => {
+    const { code } = req.params as { code: string }
+    const res = await upstream.call({
+      method: 'GET',
+      path: `/organizations/lookup/${encodeURIComponent(code.trim().toUpperCase())}`,
+      clientIp: req.ip,
+    })
+    if (res.status === 404) throw new HttpError(404, 'Organization not found', 'not_found')
+    if (res.status !== 200) throw new HttpError(502, 'Unable to lookup organization', 'upstream_unavailable')
+    return res.json()
   })
 
   app.post('/auth/verify-otp', async (req) => {

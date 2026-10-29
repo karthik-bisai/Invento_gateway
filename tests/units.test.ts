@@ -182,9 +182,10 @@ describe('email templates', () => {
     expect(rejected.html).not.toContain('<i>Bob</i>')
   })
 
-  it('puts the code in both the subject and the body, with its lifetime', () => {
+  it('does not put the code in the subject, puts it in the body with its lifetime', () => {
     const mail = otpEmail('042917', 10)
-    expect(mail.subject).toContain('042917')
+    expect(mail.subject).not.toContain('042917')
+    expect(mail.subject).toContain('Verify Your Email Address')
     expect(mail.text).toContain('042917')
     expect(mail.text).toContain('10 minutes')
     expect(mail.html).toContain('042917')

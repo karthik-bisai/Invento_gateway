@@ -49,9 +49,40 @@ export async function codeRoutes(app: FastifyInstance, ctx: Ctx) {
   app.post('/auth/login-code/request', async (req) => {
     const { email } = parse(emailBody, req.body)
     await limiter.check('login-code-ip', req.ip, 10, 3600, 'code requests')
-    await otp.reserveSend(email, 'login') // cooldown applies whether or not the account exists
     const who = await lookup(email)
-    if (who.status === 'ok') void notifier.sendLoginCode(email, await otp.issue(email, 'login'), who.full_name ?? null)
+    if (who.status === 'unknown') {
+      throw new HttpError(
+        404,
+        'Unable to sign in. No eligible account was found for the provided email address. Please check your details or contact your organization’s administrator for assistance.',
+        'no_account',
+      )
+    }
+    if (who.status === 'pending_approval') {
+      throw new HttpError(
+        403,
+        'Your registration request is awaiting administrator approval. You will be able to sign in once your request has been approved.',
+        'pending_approval',
+      )
+    }
+    if (who.status === 'email_unverified') {
+      throw new HttpError(403, 'Please verify your email address to secure your account before signing in.', 'email_unverified')
+    }
+    if (who.status === 'rejected') {
+      throw new HttpError(403, 'Your access request was declined.', 'rejected')
+    }
+    if (who.status === 'deactivated') {
+      throw new HttpError(403, 'Your account has been deactivated. Contact an administrator.', 'deactivated')
+    }
+    if (who.status !== 'ok') {
+      throw new HttpError(403, 'That account can’t be used right now.', who.status)
+    }
+
+    await otp.reserveSend(email, 'login')
+    const code = await otp.issue(email, 'login')
+    const ok = await notifier.sendLoginCode(email, code, who.full_name ?? null)
+    if (!ok) {
+      throw new HttpError(500, 'Unable to send sign-in code. Please try again.', 'email_delivery_failed')
+    }
     return sent()
   })
 

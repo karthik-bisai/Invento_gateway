@@ -285,4 +285,57 @@ describe('resending the code', () => {
     expect(bodyOf(unknown)).toEqual(bodyOf(verified))
     expect(h.sent).toHaveLength(0)
   })
+
+  it('signs up admin, generates org code, and sends verification OTP', async () => {
+    const h = await start()
+    const res = await post(h.app, '/auth/signup/admin', {
+      email: 'admin2@acme.com',
+      password: 'Sup3rSecret',
+      full_name: 'Admin Boss',
+      organization_name: 'Acme Logistics',
+      organization_location: 'Berlin',
+    })
+    expect(res.statusCode).toBe(201)
+    expect(bodyOf(res)).toMatchObject({
+      status: 'verify_email',
+      email: 'admin2@acme.com',
+      email_sent: true,
+      org_code: 'ORG-ACME1234',
+    })
+    expect(h.sent).toHaveLength(1)
+    expect(otpFrom(h)).toMatch(/^\d{6}$/)
+  })
+
+  it('signs up employee, validates org ID, and queues pending approval', async () => {
+    const h = await start()
+    // Invalid org code:
+    const badRes = await post(h.app, '/auth/signup/employee', {
+      email: 'emp@acme.com',
+      password: 'Sup3rSecret',
+      full_name: 'Emp One',
+      organization_code: 'INVALID-CODE',
+    })
+    expect(badRes.statusCode).toBe(404)
+    expect(bodyOf(badRes).code).toBe('org_not_found')
+
+    // Valid org code:
+    const goodRes = await post(h.app, '/auth/signup/employee', {
+      email: 'emp@acme.com',
+      password: 'Sup3rSecret',
+      full_name: 'Emp One',
+      organization_code: 'ORG-ACME1234',
+    })
+    expect(goodRes.statusCode).toBe(201)
+    expect(bodyOf(goodRes).status).toBe('pending_approval')
+  })
+
+  it('allows public organization lookup by org code', async () => {
+    const h = await start()
+    const res = await h.app.inject({ method: 'GET', url: `${API}/auth/org-lookup/ORG-ACME1234` })
+    expect(res.statusCode).toBe(200)
+    expect(bodyOf(res)).toMatchObject({ org_code: 'ORG-ACME1234', name: 'Acme Corp' })
+
+    const badRes = await h.app.inject({ method: 'GET', url: `${API}/auth/org-lookup/NONEXISTENT` })
+    expect(badRes.statusCode).toBe(404)
+  })
 })
