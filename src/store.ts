@@ -128,11 +128,11 @@ export class RedisStore implements Store {
    * After connecting, commands fail immediately while Redis is down (no queueing) and resume when it is back.
    */
   static async connect(url: string, opts: RedisOptions = {}): Promise<RedisStore> {
-    const connectTimeout = opts.connectTimeoutMs ?? 3000
+    const connectTimeout = opts.connectTimeoutMs ?? 1000
     const redis = new Redis(url, {
       lazyConnect: true,
       connectTimeout,
-      commandTimeout: opts.commandTimeoutMs ?? 2000,
+      commandTimeout: opts.commandTimeoutMs ?? 1000,
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
       retryStrategy: (attempt) => Math.min(attempt * 500, 5000),
